@@ -1,0 +1,30 @@
+cv2.HoughLines(image, rho, theta, threshold)
+
+image: 8bit, 1채널인 흑백이미지
+Canny로 edge 찾은 후에 적용
+
+rho: hough space에서 p값을 한번에 얼만큼 증가시키면서 조사할 것인지 물음, 1이라고 하면 1씩 증가하면서 조사, 보통 1
+
+theta: 단위는 라디안, 각도 값을 입력한 후에 pi/180을 곱해서 라디안 값으로 변환, 각도 기준으로 [0:180] 사이의 범위, 180도 넘으면 직선이 unique X, 보통 1도, 1도 * pi/180
+
+threshold: 값이 작으면 많은 직선, 높이면 확실한 직선들만 검출
+
+output은 검출된 직선 만큼의 ρ와 θ이다.
+
+
+
+
+cv2.HoughLinesP(edges, rho, theta, threshold, np.array([]), min_line_length, max_line_gap)
+
+np.array([])는 빈 배열이니 무시
+
+min_line_length: 말 그대로 선의 최소 길이, 높이면 긴 선만 검출, 단위는 픽셀
+
+max_line_gap: 선 ㅜ이의 점들 사이 최대 거리, 이 값보다 크면 나와는 다른 선으로 간주
+
+output은 선분의 시작점과 끝점에 대한 좌표 값이다.
+
+차이점:
+HoughLines는 직선 출력, 즉 이미지에서 출력하면 영상의 좌우를 관통하는 많은 선
+HoughLinesP는 선분, 설정을 많이 해야함
+
