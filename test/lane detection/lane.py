@@ -24,7 +24,7 @@ CWD_PATH = os.getcwd()
 def readVideo():
 
     # Read input video from current working directory
-    inpImage = cv2.VideoCapture(os.path.join(CWD_PATH, 'project_video.mp4'))
+    inpImage = cv2.VideoCapture(os.path.join(CWD_PATH, '../project_video.mp4'))
 
     return inpImage
 #### END - FUNCTION TO READ AN INPUT IMAGE #####################################
