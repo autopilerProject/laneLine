@@ -112,7 +112,7 @@ def plotHistogram(inpImage):
 
     histogram = np.sum(inpImage[inpImage.shape[0] // 2:, :], axis = 0)
 
-    midpoint = np.int(histogram.shape[0] / 2)
+    midpoint = int(histogram.shape[0] / 2)
     leftxBase = np.argmax(histogram[:midpoint])
     rightxBase = np.argmax(histogram[midpoint:]) + midpoint
 
@@ -133,13 +133,13 @@ def slide_window_search(binary_warped, histogram):
 
     # Find the start of left and right lane lines using histogram info
     out_img = np.dstack((binary_warped, binary_warped, binary_warped)) * 255
-    midpoint = np.int(histogram.shape[0] / 2)
+    midpoint = int(histogram.shape[0] / 2)
     leftx_base = np.argmax(histogram[:midpoint])
     rightx_base = np.argmax(histogram[midpoint:]) + midpoint
 
     # A total of 9 windows will be used
     nwindows = 9
-    window_height = np.int(binary_warped.shape[0] / nwindows)
+    window_height = int(binary_warped.shape[0] / nwindows)
     nonzero = binary_warped.nonzero()
     nonzeroy = np.array(nonzero[0])
     nonzerox = np.array(nonzero[1])
@@ -169,9 +169,9 @@ def slide_window_search(binary_warped, histogram):
         left_lane_inds.append(good_left_inds)
         right_lane_inds.append(good_right_inds)
         if len(good_left_inds) > minpix:
-            leftx_current = np.int(np.mean(nonzerox[good_left_inds]))
+            leftx_current = int(np.mean(nonzerox[good_left_inds]))
         if len(good_right_inds) > minpix:
-            rightx_current = np.int(np.mean(nonzerox[good_right_inds]))
+            rightx_current = int(np.mean(nonzerox[good_right_inds]))
     #### END - Loop to iterate through windows and search for lane lines #######
 
     left_lane_inds = np.concatenate(left_lane_inds)
