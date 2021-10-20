@@ -2,6 +2,11 @@ import cv2
 import numpy as np
 from matplotlib import pyplot as plt, cm, colors
 
+ym_per_pix = 30 / 720
+# Standard lane width is 3.7 meters divided by lane width in pixels which is
+# calculated to be approximately 720 pixels not to be confused with frame height
+xm_per_pix = 3.7 / 720
+
 cap = cv2.VideoCapture('../project_video.mp4')
 
 def birdsView(frame):
@@ -18,7 +23,7 @@ def birdsView(frame):
     # cv2.circle(frame, (1200, 710), 5, (0, 255, 0), -1)
 
     src = np.float32([[590, 440],
-                      [690, 440],
+                      [700, 440],
                       [200, 640],
                       [1000, 640]])
 
@@ -158,13 +163,13 @@ def slide_window_search(binary_warped, histogram):
     out_img[nonzeroy[left_lane_inds], nonzerox[left_lane_inds]] = [255, 0, 0]
     out_img[nonzeroy[right_lane_inds], nonzerox[right_lane_inds]] = [0, 0, 255]
 
-    cv2.imshow('slideWindow', out_img)
+    # cv2.imshow('slideWindow', out_img)
     plt.plot(left_fitx,  ploty, color = 'yellow')
     plt.plot(right_fitx, ploty, color = 'yellow')
     plt.xlim(0, 1280)
     plt.ylim(720, 0)
 
-    return ploty, left_fit, right_fit, ltx, rtx
+    return ploty, left_fit, right_fit, ltx, rtx, out_img
 
 
 
@@ -212,8 +217,8 @@ def general_search(binary_warped, left_fit, right_fit):
     cv2.fillPoly(window_img, np.int_([right_line_pts]), (100, 200, 100))
     # result = cv2.addWeighted(out_img, 1, window_img, 0.3, 0)
 
-    cv2.imshow('re', window_img)
-    cv2.imshow('re1', out_img)
+    # cv2.imshow('re', window_img)
+    # cv2.imshow('re1', out_img)
 
     plt.plot(left_fitx,  ploty, color = 'yellow')
     plt.plot(right_fitx, ploty, color = 'yellow')
@@ -227,7 +232,7 @@ def general_search(binary_warped, left_fit, right_fit):
     ret['right_fitx'] = right_fitx
     ret['ploty'] = ploty
 
-    return ret
+    return ret, window_img
 
 
 def draw_lane_lines(original_image, warped_image, Minv, draw_info):
@@ -249,16 +254,55 @@ def draw_lane_lines(original_image, warped_image, Minv, draw_info):
     pts_mean = np.array([np.flipud(np.transpose(np.vstack([mean_x, ploty])))])
 
     cv2.fillPoly(color_warp, np.int_([pts]), (0, 255, 0))
-    # cv2.fillPoly(color_warp, np.int_([pts_mean]), (0, 255, 255))
+    cv2.fillPoly(color_warp, np.int_([pts_mean]), (0, 255, 255))
 
     newwarp = cv2.warpPerspective(color_warp, Minv, (original_image.shape[1], original_image.shape[0]))
-    cv2.imshow('ai view', newwarp)
+    # addh = cv2.hconcat([addh, newwarp])
+    # cv2.imshow('ai view', addh2)
     result = cv2.addWeighted(original_image, 1, newwarp, 0.3, 0)
 
-    return pts_mean, result
+    return pts_mean, result, newwarp
 
 
+def measure_lane_curvature(ploty, leftx, rightx):
 
+    leftx = leftx[::-1]  # Reverse to match top-to-bottom in y
+    rightx = rightx[::-1]  # Reverse to match top-to-bottom in y
+
+    # Choose the maximum y-value, corresponding to the bottom of the image
+    y_eval = np.max(ploty)
+
+    # Fit new polynomials to x, y in world space
+    left_fit_cr = np.polyfit(ploty*ym_per_pix, leftx*xm_per_pix, 2)
+    right_fit_cr = np.polyfit(ploty*ym_per_pix, rightx*xm_per_pix, 2)
+
+    # Calculate the new radii of curvature
+    left_curverad  = ((1 + (2*left_fit_cr[0]*y_eval*ym_per_pix + left_fit_cr[1])**2)**1.5) / np.absolute(2*left_fit_cr[0])
+    right_curverad = ((1 + (2*right_fit_cr[0]*y_eval*ym_per_pix + right_fit_cr[1])**2)**1.5) / np.absolute(2*right_fit_cr[0])
+    # Now our radius of curvature is in meters
+    # print(left_curverad, 'm', right_curverad, 'm')
+
+    # Decide if it is a left or a right curve
+    if leftx[0] - leftx[-1] > 60:
+        curve_direction = 'Left Curve'
+    elif leftx[-1] - leftx[0] > 60:
+        curve_direction = 'Right Curve'
+    else:
+        curve_direction = 'Straight'
+
+    return (left_curverad + right_curverad) / 2.0, curve_direction
+
+
+def add_img(direction, frame):
+    if direction == 'Left Curve':
+        cv2.arrowedLine(frame, (frame.shape[1]//2+40, frame.shape[0]-100), (frame.shape[1]//2-40, frame.shape[0]-100), (0, 255, 0), thickness=3)
+    elif direction == 'Right Curve':
+        cv2.arrowedLine(frame, (frame.shape[1]//2-40, frame.shape[0]-100), (frame.shape[1]//2+40, frame.shape[0]-100), (0, 255, 0), thickness=3)
+    else:
+        cv2.arrowedLine(frame, (frame.shape[1]//2, frame.shape[0]-60), (frame.shape[1]//2, frame.shape[0]-140), (0, 255, 0), thickness=3)
+    
+    return frame
+    
 
 
 while True:
@@ -277,13 +321,41 @@ while True:
     # plt.show()
 
 
-    ploty, left_fit, right_fit, left_fitx, right_fitx = slide_window_search(thresh, hist)
+    ploty, left_fit, right_fit, left_fitx, right_fitx, window_out_img = slide_window_search(thresh, hist)
 
-    draw_info = general_search(thresh, left_fit, right_fit)
+    draw_info, window_img = general_search(thresh, left_fit, right_fit)
 
-    meanPts, result = draw_lane_lines(frame, thresh, minverse, draw_info)
+    meanPts, result, newwarp = draw_lane_lines(frame, thresh, minverse, draw_info)
+
+    curveRad, curveDir = measure_lane_curvature(ploty, left_fitx, right_fitx)
+
+    result = add_img(curveDir, result)
 
     # deviation, directionDev = offCenter(meanPts, frame)
+
+    window_img_r = cv2.resize(window_img, (window_img.shape[1]//3, window_img.shape[0]//3))
+    birdView_r = cv2.resize(birdView, (birdView.shape[1]//3, birdView.shape[0]//3))
+    window_out_img_r = cv2.resize(window_out_img, (window_out_img.shape[1]//3, window_out_img.shape[0]//3))
+    newwarp_r = cv2.resize(newwarp, (newwarp.shape[1]//3, newwarp.shape[0]//3))
+
+    birdView_r = cv2.line(birdView_r, (birdView_r.shape[1], 0), (birdView_r.shape[1], birdView_r.shape[0]), (255, 255, 255), 2)
+    birdView_r = cv2.line(birdView_r, (0, birdView_r.shape[0]), (birdView_r.shape[1], birdView_r.shape[0]), (255, 255, 255), 2)
+
+    window_out_img_r = cv2.line(window_out_img_r, (0, 0), (0, window_out_img_r.shape[0]), (255, 255, 255), 2)
+    window_out_img_r = cv2.line(window_out_img_r, (0, window_out_img_r.shape[0]), (window_out_img_r.shape[1], window_out_img_r.shape[0]), (255, 255, 255), 2)
+    
+    window_img_r = cv2.line(window_img_r, (0, 0), (window_img_r.shape[1], 0), (255, 255, 255), 2)
+    window_img_r = cv2.line(window_img_r, (window_img_r.shape[1], 0), (window_img_r.shape[1], window_img_r.shape[0]), (255, 255, 255), 2)
+
+    newwarp_r = cv2.line(newwarp_r, (0, 0), (newwarp_r.shape[1], 0), (255, 255, 255), 2)
+    newwarp_r = cv2.line(newwarp_r, (0, 0), (0, newwarp_r.shape[0]), (255, 255, 255), 2)
+    
+
+    addh1 = cv2.hconcat([birdView_r, window_out_img_r])
+    addh2 = cv2.hconcat([window_img_r, newwarp_r])
+    addv = cv2.vconcat([addh1, addh2])
+
+    cv2.imshow('ai view', addv)
 
     cv2.imshow('result', result)
     if cv2.waitKey(1) == 13:
